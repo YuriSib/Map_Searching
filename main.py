@@ -23,7 +23,7 @@ def settings():
     options.add_argument("start-maximized")
 
 
-    options.add_argument("--headless")
+    # options.add_argument("--headless")
 
 
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -59,22 +59,23 @@ def scrapper(qwery):
     if price_html:
         price = price_html.get_text(strip=True).split()[0]
     else:
-        price = "Не указана"
+        price = "Значение не найдено"
 
-    html_qnt_ratings = soup.find('div', {'class': 'business-card-view__section'})
+    html_qnt_ratings = soup.find('div', {'class': 'business-rating-with-text-view__count'})
+    if html_qnt_ratings:
+        qnt_ratings = html_qnt_ratings.get_text(strip=True).split()[0]
+    else:
+        qnt_ratings = "Значение не найдено"
 
     try:
-        # choice1 = driver.find_element('xpath', '''/html/body/div[1]/div[2]/div[8]/div[2]/div[1]/div[1]/div[1]/div/div[1]/div/div/ul/li[1]/div/div/div/div[2]''')
-        choice2 = driver.find_element('xpath', '''/html/body/div[1]/div[2]/div[8]/div[2]/div[1]/div[1]/div[1]/div/div[1]/div/div/ul/li[1]/div/div/div''')
-        # if choice1:
-        #     element = choice1
-        #     element.click()
-        if choice2:
-            element = choice2
+        choice = driver.find_element('xpath', '''/html/body/div[1]/div[2]/div[8]/div[2]/div[1]/div[1]/div[1]/div/div[1]/div/div/ul/li[1]/div/div/div''')
+        if choice:
+            element = choice
         else:
             element = driver.find_element("xpath", '''/html/body/div[1]/div[2]/div[8]/div[2]/div[1]/div[1]/div[1]/div/div[1]/div/div/ul/li[1]/div/div/div/div/div[2]/div[1]''')
         element.click()
-        time.sleep(10)
+
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
         coordinates = driver.current_url.split('=')[1].split('&')[0]
         coordinates_a, coordinates_b = coordinates.split('%2C')[0], coordinates.split('%2C')[1]
@@ -83,37 +84,56 @@ def scrapper(qwery):
         html = driver.page_source
         soup = BeautifulSoup(html, 'lxml')
 
-        try:
-            qnt_ratings = soup.find('span', {'class': 'business-rating-amount-view'}).get_text(strip=True).split()[0]
-        except Exception:
-            pass
+        if "Значение не найдено" in qnt_ratings:
+            html_qnt_ratings = soup.find('span', {'class': 'business-rating-amount-view'})
+            if html_qnt_ratings:
+                qnt_ratings = html_qnt_ratings.get_text(strip=True).split()[0]
+            else:
+                qnt_ratings = "Значение не найдено"
 
-        # working_hours = soup.find('div', {'class': 'business-card-working-status-view__text'}).get_text(strip=True)
         working_hours = soup.find_all('div', {'class': 'business-contacts-view__block'})[2].\
             find('div', {'class': 'card-feature-view__content'}).get_text(strip=True)
+        if working_hours != 'График работы не указан':
+            pass
 
         rating = soup.find('span', {'class': 'business-rating-badge-view__rating-text _size_m'}).get_text(strip=True)
+        if "Рейтинг" in rating:
+            rating = rating.strip('Рейтинг')
 
-        qnt_feedback = soup.find('div', {'class': 'business-header-rating-view__text _clickable'}).get_text(strip=True).split()[0]
-        type_ = soup.find('a', {'class': 'business-card-title-view__category _outline'}).get_text(strip=True).split()[0]
+        html_qnt_feedback = soup.find('div', {'class': 'business-header-rating-view__text _clickable'})
+        if html_qnt_feedback.text:
+            qnt_feedback = html_qnt_feedback.get_text(strip=True).split()[0]
+        else:
+            html_qnt_feedback = soup.find('div', {'class': 'business-card-title-view__header'})
+            qnt_feedback = html_qnt_feedback.get_text(strip=True).split()[0] if html_qnt_feedback.text else "Значение не найдено"
 
-        element = driver.find_element("xpath",
-                                      '''/html/body/div[1]/div[2]/div[9]/div/div[1]/div[1]/div/div[1]/div/div/div[3]/div[5]/div/div[2]/div[2]/div/div/div[1]/div[1]/div[3]''')
-        element.click()
+        type_ = soup.find('a', {'class': 'business-card-title-view__category _outline'}).get_text(strip=True)
 
-        time.sleep(5)
-        html = driver.page_source
-        soup = BeautifulSoup(html, 'lxml')
-        if qnt_ratings is False:
-            try:
-                qnt_ratings = soup.find('div', {'class': 'business-summary-rating-badge-view__rating-count'}).get_text(strip=True).split()[0]
-            except Exception:
-                qnt_ratings = 'Не удалось извлечь оценки'
+        if working_hours != 'График работы не указан' and working_hours != 'Круглосуточно' and working_hours != 'Больше не работает':
+            element = driver.find_elements("xpath","//div[@class='business-working-status-view _closed']")
+            if element:
+                element[0].click()
+                wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+                html3 = driver.page_source
+                soup3 = BeautifulSoup(html3, 'lxml')
+                working_hours = soup3.find('div', {'class': 'business-dialog-view__content'}).get_text(strip=True)
+                driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+            html = driver.page_source
+            soup = BeautifulSoup(html, 'lxml')
+            html_qnt_ratings = soup.find('div', {'class': 'business-summary-rating-badge-view__rating-count'})
+            if html_qnt_ratings:
+                qnt_ratings = html_qnt_ratings.get_text(strip=True).split()[0]
+            else:
+                qnt_ratings = "Значение не найдено"
 
     except Exception:
-        element = driver.find_element("xpath", '''/html/body/div[1]/div[2]/div[9]/div[1]/div[1]/div[1]/div/div[1]/div/div/div[3]/div[2]/div[2]/h1/a''')
-        element.click()
-        time.sleep(10)
+        element = driver.find_elements("xpath", '''/html/body/div[1]/div[2]/div[9]/div[1]/div[1]/div[1]/div/div[1]/div/div/div[3]/div[2]/div[2]/h1/a''')
+        element[0].click()
+
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
 
         coordinates = driver.current_url.split('=')[1].split('&')[0]
         coordinates_a, coordinates_b = coordinates.split('%2C')[0], coordinates.split('%2C')[1]
@@ -123,18 +143,37 @@ def scrapper(qwery):
         soup2 = BeautifulSoup(html2, 'lxml')
 
         working_hours = soup2.find('div', {'class': 'orgpage-header-view__working-status'}).get_text(strip=True)
+        if working_hours != 'График работы не указан' and working_hours != 'Круглосуточно' and working_hours != 'Больше не работает':
+            element = driver.find_elements("xpath","//div[@class='business-working-status-view _closed']")
+            if element:
+                element[0].click()
+                wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+                html3 = driver.page_source
+                soup3 = BeautifulSoup(html3, 'lxml')
+                working_hours = soup3.find('div', {'class': 'business-dialog-view__content'}).get_text(strip=True)
+                driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+
         rating = soup2.find('div', {'class': 'business-rating-badge-view__rating'}).get_text(strip=True)
+        if "Рейтинг" in rating:
+            rating = rating.strip('Рейтинг')
+
         qnt_feedback = soup2.find('div', {'class': 'business-header-rating-view__text _clickable'}).get_text(strip=True).split()[0]
-        type_ = soup2.find_all('a', {'class': 'breadcrumbs-view__breadcrumb _outline'})[2].get_text(strip=True).split()[0]
+        type_ = soup2.find_all('a', {'class': 'breadcrumbs-view__breadcrumb _outline'})[2].get_text(strip=True)
 
-        element = driver.find_element("xpath", '''/html/body/div[1]/div[2]/div[9]/div[1]/div[1]/div[1]/div/div[1]/div/div[3]/div/div[14]/div/div/div[2]/div[2]/div/div/div/div[1]/div[3]''')
-        element.click()
+        if "Значение не найдено" in qnt_ratings:
+            element = driver.find_elements("xpath", '''//div[@class='carousel__item _align_center']/div[@class='tabs-select-view__title _name_reviews']''')
+            if element:
+                element[0].click()
 
-        time.sleep(5)
-        html2 = driver.page_source
-        soup2 = BeautifulSoup(html2, 'lxml')
-        qnt_ratings = \
-        soup2.find('div', {'class': 'business-summary-rating-badge-view__rating-count'}).get_text(strip=True).split()[0]
+            wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+            html2 = driver.page_source
+            soup2 = BeautifulSoup(html2, 'lxml')
+            html_qnt_ratings = soup2.find('div', {'class': 'business-summary-rating-badge-view__rating-count'})
+        if html_qnt_ratings:
+            qnt_ratings = html_qnt_ratings.get_text(strip=True).split()[0]
+        else:
+            qnt_ratings = "Значение не найдено"
 
     driver.close()
     driver.quit()
@@ -145,21 +184,21 @@ def scrapper(qwery):
 def main():
     with open('data.pickle', 'rb') as file:
         qwery_list = pickle.load(file)
-        row = 45
-    for qwery in qwery_list[43:]:
+        row = 8
+    for qwery in qwery_list[6:]:
         try:
-            if 'лица' not in qwery and 'ляж' not in qwery:
+            if 'лица' not in qwery:
                 coordinates, type_, working_hours, rating, qnt_ratings, qnt_feedback, price = scrapper(qwery)
             else:
                 print('Нельзя искать улицы')
                 raise Exception
-        except Exception:
-            print('Exception')
+        except Exception as e:
+            print(e)
             coordinates, type_, working_hours, rating, qnt_ratings, qnt_feedback, price = '0', '0', '0', '0', '0', '0', '0'
 
         export_xl(coordinates, type_, working_hours, rating, qnt_ratings, qnt_feedback, price, row)
-        row += 1
         print(row)
+        row += 1
 
 
 if __name__ == '__main__':
